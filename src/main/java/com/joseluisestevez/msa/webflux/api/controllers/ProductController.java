@@ -37,6 +37,18 @@ public class ProductController {
     @Value("${config.uploads.path}")
     private String path;
 
+    @PostMapping("/v2")
+    public Mono<ResponseEntity<Product>> createV2(Product product, @RequestPart FilePart file) {
+
+        if (product.getCreateAt() == null) {
+            product.setCreateAt(new Date());
+        }
+        product.setPhoto(UUID.randomUUID().toString() + "-" + file.filename().replace(" ", "").replace(":", "").replace("\\", ""));
+        return file.transferTo(new File(path + product.getPhoto())).then(productService.save(product))
+                .map(p -> ResponseEntity.created(URI.create("/api/products/".concat(p.getId()))).contentType(MediaType.APPLICATION_JSON).body(p));
+
+    }
+
     @PostMapping("/uploads/{id}")
     public Mono<ResponseEntity<Product>> uploads(@PathVariable String id, @RequestPart FilePart file) {
         return productService.findById(id).flatMap(p -> {
