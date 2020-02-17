@@ -13,6 +13,9 @@ import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.http.codec.multipart.FormFieldPart;
 import org.springframework.stereotype.Component;
+import org.springframework.validation.BeanPropertyBindingResult;
+import org.springframework.validation.Errors;
+import org.springframework.validation.Validator;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
@@ -20,6 +23,7 @@ import com.joseluisestevez.msa.webflux.api.models.documents.Category;
 import com.joseluisestevez.msa.webflux.api.models.documents.Product;
 import com.joseluisestevez.msa.webflux.api.service.ProductService;
 
+import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 
 @Component
@@ -27,6 +31,9 @@ public class ProductHandler {
 
     @Autowired
     private ProductService productService;
+
+    @Autowired
+    private Validator validator;
 
     @Value("${config.uploads.path}")
     private String path;
@@ -50,8 +57,7 @@ public class ProductHandler {
                     p.setPhoto(UUID.randomUUID().toString() + "-" + file.filename().replace(" ", "").replace(":", "").replace("\\", ""));
                     return file.transferTo(new File(path + p.getPhoto())).then(productService.save(p));
                 })).flatMap(p -> ServerResponse.created(URI.create("/api/v2/products/".concat(p.getId()))).contentType(MediaType.APPLICATION_JSON)
-                        .body(fromValue(p)))
-                .switchIfEmpty(ServerResponse.notFound().build());
+                        .body(fromValue(p)));
     }
 
     public Mono<ServerResponse> upload(ServerRequest request) {
@@ -79,12 +85,23 @@ public class ProductHandler {
         Mono<Product> product = request.bodyToMono(Product.class);
 
         return product.flatMap(p -> {
-            if (p.getCreateAt() == null) {
-                p.setCreateAt(new Date());
+
+            Errors errors = new BeanPropertyBindingResult(p, Product.class.getName());
+            validator.validate(p, errors);
+
+            if (errors.hasErrors()) {
+                return Flux.fromIterable(errors.getFieldErrors())
+                        .map(fieldError -> "The field " + fieldError.getField() + " " + fieldError.getDefaultMessage()).collectList()
+                        .flatMap(list -> ServerResponse.badRequest().body(fromValue(list)));
+            } else {
+                if (p.getCreateAt() == null) {
+                    p.setCreateAt(new Date());
+                }
+                return productService.save(p).flatMap(productDB -> ServerResponse.created(URI.create("/api/v2/products/".concat(productDB.getId())))
+                        .contentType(MediaType.APPLICATION_JSON).body(fromValue(productDB)));
             }
-            return productService.save(p);
-        }).flatMap(p -> ServerResponse.created(URI.create("/api/v2/products/".concat(p.getId()))).contentType(MediaType.APPLICATION_JSON)
-                .body(fromValue(p)));
+
+        });
 
     }
 
