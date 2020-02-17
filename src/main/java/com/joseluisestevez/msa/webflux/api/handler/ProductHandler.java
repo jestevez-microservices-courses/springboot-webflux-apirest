@@ -11,10 +11,12 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
 import org.springframework.http.codec.multipart.FilePart;
+import org.springframework.http.codec.multipart.FormFieldPart;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
 
+import com.joseluisestevez.msa.webflux.api.models.documents.Category;
 import com.joseluisestevez.msa.webflux.api.models.documents.Product;
 import com.joseluisestevez.msa.webflux.api.service.ProductService;
 
@@ -28,6 +30,29 @@ public class ProductHandler {
 
     @Value("${config.uploads.path}")
     private String path;
+
+    public Mono<ServerResponse> createV2(ServerRequest request) {
+        Mono<Product> product = request.multipartData().map(multipart -> {
+            FormFieldPart name = (FormFieldPart) multipart.toSingleValueMap().get("name");
+            FormFieldPart price = (FormFieldPart) multipart.toSingleValueMap().get("price");
+            FormFieldPart categoryId = (FormFieldPart) multipart.toSingleValueMap().get("category.id");
+            FormFieldPart categoryName = (FormFieldPart) multipart.toSingleValueMap().get("category.name");
+
+            Category category = new Category(categoryName.value());
+            category.setId(categoryId.value());
+
+            return new Product(name.value(), Double.parseDouble(price.value()), category);
+        });
+
+        return request.multipartData().map(multipart -> multipart.toSingleValueMap().get("file")).cast(FilePart.class)
+                .flatMap(file -> product.flatMap(p -> {
+                    p.setCreateAt(new Date());
+                    p.setPhoto(UUID.randomUUID().toString() + "-" + file.filename().replace(" ", "").replace(":", "").replace("\\", ""));
+                    return file.transferTo(new File(path + p.getPhoto())).then(productService.save(p));
+                })).flatMap(p -> ServerResponse.created(URI.create("/api/v2/products/".concat(p.getId()))).contentType(MediaType.APPLICATION_JSON)
+                        .body(fromValue(p)))
+                .switchIfEmpty(ServerResponse.notFound().build());
+    }
 
     public Mono<ServerResponse> upload(ServerRequest request) {
         String id = request.pathVariable("id");
