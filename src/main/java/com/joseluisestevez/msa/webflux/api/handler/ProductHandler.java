@@ -2,11 +2,15 @@ package com.joseluisestevez.msa.webflux.api.handler;
 
 import static org.springframework.web.reactive.function.BodyInserters.fromValue;
 
+import java.io.File;
 import java.net.URI;
 import java.util.Date;
+import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.MediaType;
+import org.springframework.http.codec.multipart.FilePart;
 import org.springframework.stereotype.Component;
 import org.springframework.web.reactive.function.server.ServerRequest;
 import org.springframework.web.reactive.function.server.ServerResponse;
@@ -21,6 +25,20 @@ public class ProductHandler {
 
     @Autowired
     private ProductService productService;
+
+    @Value("${config.uploads.path}")
+    private String path;
+
+    public Mono<ServerResponse> upload(ServerRequest request) {
+        String id = request.pathVariable("id");
+        return request.multipartData().map(multipart -> multipart.toSingleValueMap().get("file")).cast(FilePart.class)
+                .flatMap(file -> productService.findById(id).flatMap(p -> {
+                    p.setPhoto(UUID.randomUUID().toString() + "-" + file.filename().replace(" ", "").replace(":", "").replace("\\", ""));
+                    return file.transferTo(new File(path + p.getPhoto())).then(productService.save(p));
+                })).flatMap(p -> ServerResponse.created(URI.create("/api/v2/products/".concat(p.getId()))).contentType(MediaType.APPLICATION_JSON)
+                        .body(fromValue(p)))
+                .switchIfEmpty(ServerResponse.notFound().build());
+    }
 
     public Mono<ServerResponse> list(ServerRequest request) {
         return ServerResponse.ok().contentType(MediaType.APPLICATION_JSON).body(productService.findAll(), Product.class);

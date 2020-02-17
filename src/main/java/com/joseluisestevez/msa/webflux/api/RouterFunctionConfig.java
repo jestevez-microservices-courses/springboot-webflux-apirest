@@ -20,6 +20,7 @@ public class RouterFunctionConfig {
     public RouterFunction<ServerResponse> routes(ProductHandler productHandler) {
         return route(GET("/api/v2/products").or(GET("/api/v3/products")), productHandler::list)
                 .andRoute(GET("/api/v2/products/{id}"), productHandler::view).andRoute(POST("/api/v2/products"), productHandler::create)
-                .andRoute(PUT("/api/v2/products/{id}"), productHandler::edit).andRoute(DELETE("/api/v2/products/{id}"), productHandler::delete);
+                .andRoute(PUT("/api/v2/products/{id}"), productHandler::edit).andRoute(DELETE("/api/v2/products/{id}"), productHandler::delete)
+                .andRoute(POST("/api/v2/products/uploads/{id}"), productHandler::upload);
     }
 }
