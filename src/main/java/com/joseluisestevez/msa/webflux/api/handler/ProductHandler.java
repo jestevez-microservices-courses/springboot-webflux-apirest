@@ -58,4 +58,11 @@ public class ProductHandler {
         }).flatMap(p -> ServerResponse.created(URI.create("/api/v2/products/".concat(p.getId()))).contentType(MediaType.APPLICATION_JSON)
                 .body(productService.save(p), Product.class)).switchIfEmpty(ServerResponse.notFound().build());
     }
+
+    public Mono<ServerResponse> delete(ServerRequest request) {
+        String id = request.pathVariable("id");
+        Mono<Product> productDB = productService.findById(id);
+        return productDB.flatMap(p -> productService.delete(p).then(ServerResponse.noContent().build()))
+                .switchIfEmpty(ServerResponse.notFound().build());
+    }
 }
