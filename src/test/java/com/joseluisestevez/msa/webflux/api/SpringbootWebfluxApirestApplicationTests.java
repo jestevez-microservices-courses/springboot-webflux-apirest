@@ -98,4 +98,19 @@ class SpringbootWebfluxApirestApplicationTests {
                 });
     }
 
+    @Test
+    void testEdit() {
+        String productName = "Sony Notebook";
+        Product product = productService.findByName(productName).block(); // block sincrono
+        String categoryName = "Electronics";
+        Category category = productService.findCategoryByName(categoryName).block();
+
+        Product productEdited = new Product("Asus Notebook", 700.00, category);
+
+        webTestClient.put().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON).body(Mono.just(productEdited), Product.class).exchange().expectStatus().isCreated().expectHeader()
+                .contentType(MediaType.APPLICATION_JSON).expectBody().jsonPath("$.id").isNotEmpty().jsonPath("$.name").isEqualTo("Asus Notebook")
+                .jsonPath("$.category.name").isEqualTo(categoryName);
+    }
+
 }
