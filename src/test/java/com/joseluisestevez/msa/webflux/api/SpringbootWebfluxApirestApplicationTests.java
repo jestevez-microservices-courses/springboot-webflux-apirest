@@ -6,14 +6,17 @@ import java.util.List;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.test.autoconfigure.web.reactive.AutoConfigureWebTestClient;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -23,7 +26,9 @@ import com.joseluisestevez.msa.webflux.api.service.ProductService;
 
 import reactor.core.publisher.Mono;
 
-@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT)
+@ExtendWith(SpringExtension.class)
+@AutoConfigureWebTestClient
+@SpringBootTest(webEnvironment = WebEnvironment.RANDOM_PORT) // WebEnvironment.MOCK - always fail first test?
 class SpringbootWebfluxApirestApplicationTests {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SpringbootWebfluxApirestApplicationTests.class);
@@ -106,8 +111,9 @@ class SpringbootWebfluxApirestApplicationTests {
 
     @Test
     void testEdit() {
-        String productName = "Sony Notebook";
+        String productName = "TV Sony Bravia OLED 4K Ultra HD";
         Product product = productService.findByName(productName).block(); // block sincrono
+
         String categoryName = "Electronics";
         Category category = productService.findCategoryByName(categoryName).block();
 
