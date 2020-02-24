@@ -9,6 +9,8 @@ import java.util.UUID;
 
 import javax.validation.Valid;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
@@ -35,6 +37,8 @@ import reactor.core.publisher.Mono;
 @RestController
 @RequestMapping("/api/products")
 public class ProductController {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(ProductController.class);
 
     @Autowired
     private ProductService productService;
@@ -78,8 +82,11 @@ public class ProductController {
 
     @PostMapping
     public Mono<ResponseEntity<Map<String, Object>>> create(@Valid @RequestBody Mono<Product> monoProduct) {
+        LOGGER.info("Create monoProduct = [{}]", monoProduct);
+
         Map<String, Object> responseMap = new HashMap<>();
         return monoProduct.flatMap(product -> {
+            LOGGER.info("Create product = [{}]", product);
             if (product.getCreateAt() == null) {
                 product.setCreateAt(new Date());
             }
@@ -88,15 +95,19 @@ public class ProductController {
                 responseMap.put("message", "Product saved successfully");
                 responseMap.put("timestamp", new Date());
 
+                LOGGER.info("Create responseMap = [{}]", responseMap);
                 return ResponseEntity.created(URI.create("/api/products/".concat(p.getId()))).contentType(MediaType.APPLICATION_JSON)
                         .body(responseMap);
             });
         }).onErrorResume(t -> {
+            LOGGER.info("Error t = [{}]", t);
             return Mono.just(t).cast(WebExchangeBindException.class).flatMap(e -> Mono.just(e.getFieldErrors())).flatMapMany(Flux::fromIterable)
                     .map(fieldError -> "The field " + fieldError.getField() + " " + fieldError.getDefaultMessage()).collectList().flatMap(list -> {
                         responseMap.put("errors", list);
                         responseMap.put("timestamp", new Date());
                         responseMap.put("status", HttpStatus.BAD_REQUEST.value());
+
+                        LOGGER.info("Error in create responseMap = [{}]", responseMap);
                         return Mono.just(ResponseEntity.badRequest().body(responseMap));
                     });
         });
