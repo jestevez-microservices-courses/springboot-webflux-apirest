@@ -42,8 +42,15 @@ class SpringbootWebfluxApirestApplicationTests {
         String productName = "TV Panasonic Pantalla LCD";
         Product product = productService.findByName(productName).block(); // block sincrono
         webTestClient.get().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).accept(MediaType.APPLICATION_JSON).exchange()
-                .expectStatus().isOk().expectHeader().contentType(MediaType.APPLICATION_JSON).expectBody().jsonPath("$.id").isNotEmpty()
-                .jsonPath("$.name").isEqualTo(productName);
+                .expectStatus().isOk().expectHeader().contentType(MediaType.APPLICATION_JSON).expectBody(Product.class).consumeWith(response -> {
+                    Product productResponse = response.getResponseBody();
+                    Assertions.assertNotNull(productResponse.getName());
+                    Assertions.assertTrue(productResponse.getName().length() > 0);
+                    Assertions.assertEquals(productName, productResponse.getName());
+                })
+        // .expectBody().jsonPath("$.id").isNotEmpty()
+        // .jsonPath("$.name").isEqualTo(productName)
+        ;
     }
 
 }
