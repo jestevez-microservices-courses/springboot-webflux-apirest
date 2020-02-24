@@ -2,6 +2,7 @@ package com.joseluisestevez.msa.webflux.api;
 
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
@@ -13,6 +14,7 @@ import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.joseluisestevez.msa.webflux.api.models.documents.Category;
 import com.joseluisestevez.msa.webflux.api.models.documents.Product;
 import com.joseluisestevez.msa.webflux.api.service.ProductService;
@@ -72,6 +74,28 @@ class SpringbootWebfluxApirestApplicationTests {
                 .body(Mono.just(product), Product.class).exchange().expectStatus().isCreated().expectHeader().contentType(MediaType.APPLICATION_JSON)
                 .expectBody().jsonPath("$.product.id").isNotEmpty().jsonPath("$.product.name").isEqualTo(productName)
                 .jsonPath("$.product.category.name").isEqualTo(categoryName);
+    }
+
+    @Test
+    void testCreate2() {
+        String productName = "Nintendo 64";
+        String categoryName = "Electronics";
+        Category category = productService.findCategoryByName(categoryName).block();
+        ObjectMapper objectMapper = new ObjectMapper();
+        LOGGER.info("category=[{}]", category);
+        Product product = new Product(productName, 29.99, category);
+        webTestClient.post().uri("/api/products").contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+                .body(Mono.just(product), Product.class).exchange().expectStatus().isCreated().expectHeader().contentType(MediaType.APPLICATION_JSON)
+                .expectBody(Map.class).consumeWith(response -> {
+                    Map<String, Object> responseMap = response.getResponseBody();
+                    Assertions.assertNotNull(responseMap);
+                    Product productResponse = objectMapper.convertValue(responseMap.get("product"), Product.class);
+                    Assertions.assertNotNull(productResponse.getName());
+                    Assertions.assertTrue(productResponse.getName().length() > 0);
+                    Assertions.assertEquals(productName, productResponse.getName());
+                    Assertions.assertNotNull(productResponse.getCategory());
+                    Assertions.assertEquals(categoryName, productResponse.getCategory().getName());
+                });
     }
 
 }
