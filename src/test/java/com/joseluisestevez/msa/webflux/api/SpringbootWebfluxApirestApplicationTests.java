@@ -1,16 +1,18 @@
 package com.joseluisestevez.msa.webflux.api;
 
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Map;
 
 import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.test.context.SpringBootTest.WebEnvironment;
+import org.springframework.core.ParameterizedTypeReference;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.reactive.server.WebTestClient;
 
@@ -26,6 +28,9 @@ class SpringbootWebfluxApirestApplicationTests {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(SpringbootWebfluxApirestApplicationTests.class);
 
+    @Value("${config.base.endpoint}")
+    private String uri;
+
     @Autowired
     private WebTestClient webTestClient;
 
@@ -34,7 +39,7 @@ class SpringbootWebfluxApirestApplicationTests {
 
     @Test
     void testList() {
-        webTestClient.get().uri("/api/products").accept(MediaType.APPLICATION_JSON).exchange().expectStatus().isOk().expectHeader()
+        webTestClient.get().uri(uri).accept(MediaType.APPLICATION_JSON).exchange().expectStatus().isOk().expectHeader()
                 .contentType(MediaType.APPLICATION_JSON).expectBodyList(Product.class).consumeWith(response -> {
                     List<Product> products = response.getResponseBody();
                     products.forEach(product -> {
@@ -50,7 +55,7 @@ class SpringbootWebfluxApirestApplicationTests {
     void testView() {
         String productName = "TV Panasonic Pantalla LCD";
         Product product = productService.findByName(productName).block(); // block sincrono
-        webTestClient.get().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).accept(MediaType.APPLICATION_JSON).exchange()
+        webTestClient.get().uri(uri + "/{id}", Collections.singletonMap("id", product.getId())).accept(MediaType.APPLICATION_JSON).exchange()
                 .expectStatus().isOk().expectHeader().contentType(MediaType.APPLICATION_JSON).expectBody(Product.class).consumeWith(response -> {
                     Product productResponse = response.getResponseBody();
                     Assertions.assertNotNull(productResponse.getName());
@@ -70,7 +75,7 @@ class SpringbootWebfluxApirestApplicationTests {
 
         LOGGER.info("category=[{}]", category);
         Product product = new Product(productName, 29.99, category);
-        webTestClient.post().uri("/api/products").contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+        webTestClient.post().uri(uri).contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
                 .body(Mono.just(product), Product.class).exchange().expectStatus().isCreated().expectHeader().contentType(MediaType.APPLICATION_JSON)
                 .expectBody().jsonPath("$.product.id").isNotEmpty().jsonPath("$.product.name").isEqualTo(productName)
                 .jsonPath("$.product.category.name").isEqualTo(categoryName);
@@ -84,12 +89,13 @@ class SpringbootWebfluxApirestApplicationTests {
         ObjectMapper objectMapper = new ObjectMapper();
         LOGGER.info("category=[{}]", category);
         Product product = new Product(productName, 29.99, category);
-        webTestClient.post().uri("/api/products").contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
+        webTestClient.post().uri(uri).contentType(MediaType.APPLICATION_JSON).accept(MediaType.APPLICATION_JSON)
                 .body(Mono.just(product), Product.class).exchange().expectStatus().isCreated().expectHeader().contentType(MediaType.APPLICATION_JSON)
-                .expectBody(Map.class).consumeWith(response -> {
-                    Map<String, Object> responseMap = response.getResponseBody();
-                    Assertions.assertNotNull(responseMap);
-                    Product productResponse = objectMapper.convertValue(responseMap.get("product"), Product.class);
+                .expectBody(new ParameterizedTypeReference<LinkedHashMap<String, Object>>() {
+                }).consumeWith(response -> {
+                    Object object = response.getResponseBody().get("product");
+
+                    Product productResponse = objectMapper.convertValue(object, Product.class);
                     Assertions.assertNotNull(productResponse.getName());
                     Assertions.assertTrue(productResponse.getName().length() > 0);
                     Assertions.assertEquals(productName, productResponse.getName());
@@ -107,7 +113,7 @@ class SpringbootWebfluxApirestApplicationTests {
 
         Product productEdited = new Product("Asus Notebook", 700.00, category);
 
-        webTestClient.put().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).contentType(MediaType.APPLICATION_JSON)
+        webTestClient.put().uri(uri + "/{id}", Collections.singletonMap("id", product.getId())).contentType(MediaType.APPLICATION_JSON)
                 .accept(MediaType.APPLICATION_JSON).body(Mono.just(productEdited), Product.class).exchange().expectStatus().isCreated().expectHeader()
                 .contentType(MediaType.APPLICATION_JSON).expectBody().jsonPath("$.id").isNotEmpty().jsonPath("$.name").isEqualTo("Asus Notebook")
                 .jsonPath("$.category.name").isEqualTo(categoryName);
@@ -118,11 +124,11 @@ class SpringbootWebfluxApirestApplicationTests {
         String productName = "Mica Cómoda 5 Cajones";
         Product product = productService.findByName(productName).block(); // block sincrono
 
-        webTestClient.delete().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).exchange().expectStatus().isNoContent()
+        webTestClient.delete().uri(uri + "/{id}", Collections.singletonMap("id", product.getId())).exchange().expectStatus().isNoContent()
                 .expectBody().isEmpty();
 
-        webTestClient.get().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).exchange().expectStatus().isNotFound()
-                .expectBody().isEmpty();
+        webTestClient.get().uri(uri + "/{id}", Collections.singletonMap("id", product.getId())).exchange().expectStatus().isNotFound().expectBody()
+                .isEmpty();
 
     }
 
