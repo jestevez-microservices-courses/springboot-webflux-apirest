@@ -113,4 +113,17 @@ class SpringbootWebfluxApirestApplicationTests {
                 .jsonPath("$.category.name").isEqualTo(categoryName);
     }
 
+    @Test
+    void testDelete() {
+        String productName = "Mica Cómoda 5 Cajones";
+        Product product = productService.findByName(productName).block(); // block sincrono
+
+        webTestClient.delete().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).exchange().expectStatus().isNoContent()
+                .expectBody().isEmpty();
+
+        webTestClient.get().uri("/api/products/{id}", Collections.singletonMap("id", product.getId())).exchange().expectStatus().isNotFound()
+                .expectBody().isEmpty();
+
+    }
+
 }
