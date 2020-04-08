@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.cloud.netflix.eureka.EnableEurekaClient;
 import org.springframework.data.mongodb.core.ReactiveMongoTemplate;
 
 import com.joseluisestevez.msa.webflux.api.models.documents.Category;
@@ -16,6 +17,7 @@ import com.joseluisestevez.msa.webflux.api.service.ProductService;
 
 import reactor.core.publisher.Flux;
 
+@EnableEurekaClient // No es necesario, con el starter ya se habilita como cliente
 @SpringBootApplication
 public class SpringbootWebfluxApirestApplication implements CommandLineRunner {
 
